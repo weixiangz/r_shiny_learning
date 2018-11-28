@@ -1,0 +1,293 @@
+---
+title: "TRUIC Shiny Dashboard"
+output: html_notebook
+---
+
+
+
+
+```{r required plugins and functions, echo=FALSE}
+
+# Insert list of packages into the here. 
+list.of.packages <- c("assertr",
+                      "tidyverse",
+                      "lubridate",
+                      "shiny",
+                      "shinydashboard",
+                      "ggfortify",
+                      "plotly",
+                      "plyr",
+                      "dplyr",
+                      "openxlsx",
+                      "jsonlite",
+                      "magrittr",
+                      "googleAnalyticsR",
+                      "rsconnect")
+
+# Install missing packages
+
+missing.packages <- list.of.packages[!(list.of.packages %in% 
+                                         installed.packages()[,"Package"])]
+
+if (length(missing.packages) > 0) {
+  install.packages(missing.packages, 
+    dependencies = TRUE
+    )
+}
+
+# Load packages
+
+lapply(list.of.packages, require, character.only = TRUE)
+
+# Load Function
+
+source("filtering_functions.R")
+source("helper_functions.R")
+source("helper_scripts.R")
+source("dashboard_info.R")
+
+```
+
+```{r}
+
+rsconnect::setAccountInfo(name='weizhangdash', token='5F3D981271B6C43ECCFF6C4FAAA7FCF7', secret='EI6JCZg/NNqak5gGXjptivV69BWbKU7G+tWPB6Ti')
+
+```
+
+
+```{r Sample Datapulls}
+
+ga_id <-  "31471801"
+
+three_month_data <- google_analytics(
+  ga_id,
+  date_range = c(today()-90, today()-1), 
+  metrics = c("sessions"),
+  dimensions = c("date"), 
+  anti_sample = TRUE, 
+  max = - 1
+)
+
+one_week_sessions <- google_analytics(
+  ga_id, 
+  date_range = c(today()-7, today()-1), 
+  metrics = c("sessions"),
+  dimensions = "date", 
+  anti_sample = TRUE, 
+  max = -1
+  )
+
+one_year_sessions <- google_analytics(
+  ga_id, 
+  date_range = c(today()-365, today()-1), 
+  metrics = c("sessions"),
+  dimensions = "date", 
+  anti_sample = TRUE, 
+  max = -1
+  )
+
+```  
+
+
+```{r Plotly 3month dataset demo}
+
+three_month_plotly <- plot_ly(three_month_data, x = three_month_data$date) %>%
+  add_trace(y = ~three_month_data$sessions, name = 'Three Month Session View',mode = 'lines') %>%
+  layout(xaxis = list(title = "Months"),
+         yaxis = list (title = "Sessions"))
+
+
+one_week_plotly <-plot_ly(one_week_sessions, x = one_week_sessions$date) %>%
+  add_trace(y = ~one_week_sessions$sessions, name = 'One Week Session View',mode = 'lines') %>%
+  layout(xaxis = list(title = "Days"),
+         yaxis = list (title = "Sessions"))
+
+
+one_year_data <-plot_ly(one_year_sessions, x = one_year_sessions$date) %>%
+  add_trace(y = ~one_year_sessions$sessions, name = 'One Year Session View',mode = 'lines') %>%
+  layout(xaxis = list(title = "Month"),
+         yaxis = list (title = "Sessions"))
+
+```
+
+
+
+```{r Skeleton of Structure of dashboard}
+
+ui2 <- shinyUI(
+  dashboardPage( skin = "blue",
+                 dashboardHeader(title = "TRUIC Dashboard"), 
+                 
+                 dashboardSidebar(
+                   sidebarMenu(
+                     menuItem("Summary Dashboard", tabName = "dashboard", icon=icon("dashboard")),
+                     menuItem("Bobby's Dashboard", tabName = "bobby_dash", icon=icon("cloud-upload")),
+                     menuItem("Analyse", tabName = "analyse", icon=icon("calculator")),
+                     menuSubItem("Our Website", href="http://howtostartanllc.com", icon = icon("sitemap"))
+                   )
+                 ),
+                 dashboardBody(
+                   tabItems(
+                     tabItem(tabName = "dashboard",
+                             h1("Executive Summary"),
+                             # Insert first box here, 
+                             fluidRow(
+                               tabBox(
+                                 title = "", width = 6,
+                                 tabPanel(title=tagList(shiny::icon("line-chart"), "One "), plotlyOutput(outputId = "view_daily_state_pages")),
+                                 tabPanel(title=tagList(shiny::icon("calendar"), "Business Idea Page"),plotlyOutput(outputId = "daily_business_id_plot")),
+                                 tabPanel(title=tagList(shiny::icon("thumbs-up"), "Specialty Pages"),plotlyOutput(outputId = "daily_Specialty_Pages_Plot"))
+                               ),
+                               tabBox(
+                                 title = "", width = 6,
+                                 tabPanel(title=tagList(shiny::icon("line-chart"), "One "), plotlyOutput(outputId = "daily_TopTenStatePagesPlot")),
+                                 tabPanel(title=tagList(shiny::icon("calendar"), "Business Idea Page"),plotlyOutput(outputId = "daily_BottomFortyStatePagesPlot")),
+                                 tabPanel(title=tagList(shiny::icon("thumbs-up"), "Specialty Pages"),plotlyOutput(outputId = "daily_SalesTaxPagesPlot"))
+                               )
+                             ),
+                             h2("Daily Summary"),
+                             
+                             ####### Panel Editing Section. 
+                             
+                             fluidRow(tabBox(title = "", width = 12,
+                                             tabPanel(title=tagList(shiny::icon("thumbs-up"), "Name Search Pages"),plotlyOutput(outputId = "daily_NameSearchPagesPlot")),
+                                             tabPanel(title=tagList(shiny::icon("thumbs-up"), "Review Pages"),plotlyOutput(outputId = "daily_ReviewPagesPlot")),
+                                             tabPanel(title=tagList(shiny::icon("thumbs-up"), "Interview"),plotlyOutput(outputId = "daily_InterviewPagesPlot"))
+                             )
+                             ),
+                             
+                             h2("Weekly Summary"),
+                             
+                             fluidRow(tabBox(title = "", width = 12,
+                                             tabPanel(title=tagList(shiny::icon("line-chart"), "state page"), plotlyOutput(outputId = "weekly_statepage_plot")),
+                                             #   tabPanel(title=tagList(shiny::icon("calendar"), " Business Idea Page"),plotlyOutput(outputId = "weekly_businessideapage_plot")),
+                                             #tabPanel(title=tagList(shiny::icon("thumbs-up"), " Specialty Pages"),plotlyOutput(outputId = "weekly_specialtypages_plot")),
+                                             tabPanel(title=tagList(shiny::icon("thumbs-up"), " Top Ten State Pages"),plotlyOutput(outputId = "weekly_toptenstatepages_plot")),
+                                             tabPanel(title=tagList(shiny::icon("thumbs-up"), " Bottom Forty State Pages"),plotlyOutput(outputId = "weekly_bottomfortystatepages_plot")),
+                                             tabPanel(title=tagList(shiny::icon("thumbs-up"), " Sales Tax Pages"),plotlyOutput(outputId = "weekly_salestaxpages_plot")),
+                                             tabPanel(title=tagList(shiny::icon("thumbs-up"), " Name Search Pages"),plotlyOutput(outputId = "weekly_namesearchpages_plot")),
+                                             tabPanel(title=tagList(shiny::icon("thumbs-up"), " Review Pages"),plotlyOutput(outputId = "weekly_reviewpages_plot")),
+                                             tabPanel(title=tagList(shiny::icon("thumbs-up"), " Interview"),plotlyOutput(outputId = "weekly_interviewpages_plot"))
+                             )
+                             )
+                             
+                             ####### end Panel Editing Section. 
+                     ),
+                     tabItem(tabName = "bobby_dash",
+                             h1("Bobby's Summary"),
+                             fluidRow(  #row 1
+                               box(
+                                 width=6, 
+                                 title="Three Month Summary", 
+                                 solidHeader = T, 
+                                 status = "primary",
+                                 plotlyOutput(outputId = "weekly_businessideapage_plot")
+                               ),
+                               box(
+                                 width=6, 
+                                 height="200px",
+                                 title="One Week Summary", 
+                                 solidHeader = T, 
+                                 status = "primary"
+                               ) 
+                             ),
+                             fluidRow(
+                               box(
+                                 width=6, 
+                                 title="Three Month Summary", 
+                                 solidHeader = T, 
+                                 status = "primary",
+                                 plotlyOutput(outputId = "weekly_specialtypages_plot")
+                               )
+                             )
+                     ),
+                     tabItem(tabName = "analyse",
+                             h1("Useful Analysis"),
+                             fluidRow(  #row 1
+                               box(
+                                 width=6, 
+                                 height="200px",
+                                 title="Three Month Summary", 
+                                 solidHeader = T, 
+                                 status = "primary"
+                               ),
+                               box(
+                                 width=6, 
+                                 height="200px",
+                                 title="One Week Summary", 
+                                 solidHeader = T, 
+                                 status = "primary"
+                               ) 
+                             )
+                     )
+                   )
+                 )
+  )
+)
+
+	# The {} within the next function is where you add the logic behind the graphics. 
+	# Having the outputID in the ui section is where the server logic is going to be presented. 
+server <- function(input, output){
+  
+    # renderPlot is great for rendering img based plots, great for showing figures but they offer no interactivity. 
+  output$three_month_view <-renderPlotly(three_month_plotly)
+  
+  output$one_week_view <-renderPlotly(one_week_plotly)
+   
+  output$one_year_view <-renderPlotly(one_year_data)
+
+  
+  ## Chris' Dashboard Inputs
+  
+    output$view_daily_state_pages <-renderPlotly(dailyStatePagePlot)
+    output$daily_business_id_plot <-renderPlotly(dailyBusinessIdeaPagePlot)
+    output$daily_Specialty_Pages_Plot <-renderPlotly(dailySpecialtyPagesPlot)
+    output$daily_TopTenStatePagesPlot <-renderPlotly(dailyTopTenStatePagesPlot)
+    output$daily_BottomFortyStatePagesPlot <-renderPlotly(dailyBottomFortyStatePagesPlot)
+    output$daily_SalesTaxPagesPlot <-renderPlotly(dailySalesTaxPagesPlot)
+    output$daily_NameSearchPagesPlot <-renderPlotly(dailyNameSearchPagesPlot)
+    output$daily_ReviewPagesPlot <-renderPlotly(dailyReviewPagesPlot)
+    output$daily_InterviewPagesPlot <-renderPlotly(dailyInterviewPagesPlot)
+
+    output$weekly_statepage_plot  <-renderPlotly( weeklyStatePagePlot)
+    output$weekly_businessideapage_plot <-renderPlotly( weeklyBusinessIdeaPagePlot)
+    output$weekly_specialtypages_plot <-renderPlotly( weeklySpecialtyPagesPlot)
+    output$weekly_toptenstatepages_plot <-renderPlotly( weeklyTopTenStatePagesPlot)
+    output$weekly_bottomfortystatepages_plot  <-renderPlotly( weeklyBottomFortyStatePagesPlot)
+    output$weekly_salestaxpages_plot  <-renderPlotly( weeklySalesTaxPagesPlot)
+    output$weekly_namesearchpages_plot  <-renderPlotly( weeklyNameSearchPagesPlot)
+    output$weekly_reviewpages_plot  <-renderPlotly( weeklyReviewPagesPlot)
+    output$weekly_interviewpages_plot <-renderPlotly( weeklyInterviewPagesPlot)
+  
+  ##
+  
+   output$histogram2 <-renderPlot({
+     plot(x = three_month_data$date, 
+     y = three_month_data$sessions, 
+     type = "o",
+     main = "3 Month Session",
+     xlab = "Dates", 
+     ylab = "Sessions"
+     
+     )}
+   )
+   
+   
+  output$histogram <- renderPlot({
+    hist(
+      faithful$eruptions, 
+      breaks = input$bins)
+  })
+  
+  output$text1 <- renderText(input$bins)
+}
+
+```
+
+
+
+```{r}
+shinyApp(ui2, server)
+
+```
+
